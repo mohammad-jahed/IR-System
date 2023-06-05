@@ -2,10 +2,11 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from nltk.stem import WordNetLemmatizer
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from dateutil.parser import parse
 from datetime import datetime
+import country_converter as coco
 
 import string
 import re
@@ -18,6 +19,22 @@ import re
 ps = PorterStemmer()
 lemmatizer = WordNetLemmatizer()
 vectorizer = TfidfVectorizer()
+vec = CountVectorizer()
+cc = coco.CountryConverter()
+
+
+def handle_numbers(text):
+    # Replace numbers with a special token
+    text = re.sub(r'\d+', '', text)
+    return text
+
+
+def handle_countries(tokens):
+    text = cc.pandas_convert(series=pd.Series(tokens, name='country'), to='ISO3', not_found=None)
+    text = (' ').join(text)
+    text = text.replace("united states", "USA")
+    text = text.replace("united kingdom", "UK")
+    return word_tokenize(text)
 
 
 def handle_contractions(text):
@@ -26,28 +43,56 @@ def handle_contractions(text):
     return text
 
 
+# def remove_punctuation(text):
+#     # Define a translation table that excludes punctuation from dates
+#     date_punctuation = string.punctuation.replace('-', '')
+#     table = str.maketrans('', '', date_punctuation)
+
+#     # Split the text into words
+#     words = text.split()
+
+#     # Remove punctuation from each word, except for words that look like dates
+#     cleaned_words = []
+#     for word in words:
+#         if '/' in word and len(word.split('-')) == 3 :
+#             # This word looks like a date, so don't remove punctuation
+#             cleaned_words.append(word)
+#         else:
+#             # Remove punctuation from the word
+#             cleaned_word = word.translate(table)
+#             cleaned_words.append(cleaned_word)
+
+#     # Join the cleaned words back into a string
+#     cleaned_text = ' '.join(cleaned_words)
+#     return cleaned_text
 def remove_punctuation(text):
-    # Define a translation table that excludes punctuation from dates
-    date_punctuation = string.punctuation.replace('-', '')
-    table = str.maketrans('', '', date_punctuation)
+    # Remove punctuation characters from the text
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    return text
 
-    # Split the text into words
-    words = text.split()
 
-    # Remove punctuation from each word, except for words that look like dates
-    cleaned_words = []
-    for word in words:
-        if '/' in word and len(word.split('-')) == 3:
-            # This word looks like a date, so don't remove punctuation
-            cleaned_words.append(word)
-        else:
-            # Remove punctuation from the word
-            cleaned_word = word.translate(table)
-            cleaned_words.append(cleaned_word)
-
-    # Join the cleaned words back into a string
-    cleaned_text = ' '.join(cleaned_words)
-    return cleaned_text
+# def remove_punctuation(text):
+#     # Define a translation table that excludes punctuation from dates
+#     date_punctuation = string.punctuation.replace('-', '')
+#     table = str.maketrans('', '', date_punctuation)
+#
+#     # Split the text into words
+#     words = text.split()
+#
+#     # Remove punctuation from each word, except for words that look like dates
+#     cleaned_words = []
+#     for word in words:
+#         if '/' in word and len(word.split('-')) == 3:
+#             # This word looks like a date, so don't remove punctuation
+#             cleaned_words.append(word)
+#         else:
+#             # Remove punctuation from the word
+#             cleaned_word = word.translate(table)
+#             cleaned_words.append(cleaned_word)
+#
+#     # Join the cleaned words back into a string
+#     cleaned_text = ' '.join(cleaned_words)
+#     return cleaned_text
 
 
 def lowercase(text):
@@ -109,18 +154,23 @@ def lemmatize_with_pos(tokens):
 def preprocess_text(text):
     text_str = str(text)
     # Normalization
-    # text_str = handle_contractions(text_str)
+    text_str = remove_punctuation(text_str)
+    text_str = handle_dates(text_str)
+    text_str = handle_numbers(text_str)
+    text_str = handle_contractions(text_str)
     text_str = lowercase(text_str)
-    # text_str = handle_dates(text_str)
-    # text_str = remove_punctuation(text_str)
 
     # Tokenization
     tokens = word_tokenize(text_str)
     stop_words = set(stopwords.words('english'))
     # Removing stop worlds
     tokens = [token for token in tokens if token not in stop_words]
+
+    # tokens = handle_countries(tokens)
+
     # Stemming
-    tokens = [ps.stem(token) for token in tokens]
+    # tokens = [ps.stem(token) for token in tokens]
+
     # Lemmatization
     processed_text = lemmatize_with_pos(tokens)
     return processed_text
@@ -132,42 +182,34 @@ def represent_text(text):
     return x
 
 
-# Indexing
-def build_index(texts):
-    # Create empty dictionary to hold inverted index
-    inverted_index = {}
-
-    # Loop through each document (text) in the list
-    for i, text in enumerate(texts):
-        # Split the current document into words
-        words = text.split()
-
-        # Loop through each word in the current document
-        for word in words:
-            # If the word is not already in the inverted index, add it with an empty list value
-            if word not in inverted_index:
-                inverted_index[word] = [i]
-
-            # Add the current document index to the list of documents for this word in the inverted index
-            inverted_index[word].append(i)
-
-    # Return the completed inverted index
-    return inverted_index
+#Indexing
+def build_index(data):
+    inverse_index = {}
+    for i, doc in enumerate(data):
+        terms = doc.split()
+        for term in terms:
+            if term not in inverse_index:
+                inverse_index[term] = [i]
+            else:
+                inverse_index[term].append(i)
+    return inverse_index
 
 
 # Query Matching
-def match_query(query, document_vectors, candidate_docs, data):
-    query_vector = vectorizer.transform([query])
-    # faltten method to convert a multi-dimensional array or matrix into a single-dimensional array.
+def match_query(query_vector, document_vectors, candidate_docs, data, top_k=30):
+    # Transform the query vector
+    query_vector = vectorizer.transform([query_vector])
+
+    # Compute the cosine similarities between the query vector and the candidate documents
     similarities = cosine_similarity(query_vector, document_vectors).flatten()
 
-    # Rank the documents
-    sorted_indices = np.argsort(similarities)[::-1]
-    ranked_documents = [data.iloc[i] for i in sorted_indices if i in candidate_docs]
+    # Rank and filter the documents based on their similarities to the query
+    candidate_scores = {i: score for i, score in enumerate(similarities) if i in candidate_docs}
+    sorted_indices = sorted(candidate_scores.keys(), key=lambda i: candidate_scores[i], reverse=True)[:top_k]
+    ranked_documents = [data.iloc[i] for i in sorted_indices]
 
     # Return the top-ranked documents
-    search_results = ranked_documents
-    return search_results
+    return ranked_documents
 
 
 def get_candidate_docs(query, inverse_index):
@@ -190,6 +232,7 @@ def process_queries(queries, document_vectors, inverse_index, df):
         match_result[query['query_id']] = [doc['doc_id'] for doc in query_results]
     return match_result
 
+
 def precision(tp, fp):
     """
     Calculate precision given the number of true positives (tp) and false positives (fp).
@@ -202,6 +245,7 @@ def recall(tp, fn):
     Calculate recall given the number of true positives (tp) and false negatives (fn).
     """
     return tp / (tp + fn + 1e-10)
+
 
 def f1_score(precision, recall):
     """
