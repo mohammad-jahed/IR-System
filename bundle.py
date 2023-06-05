@@ -1,3 +1,11 @@
+import re
+import string
+from nltk.stem import PorterStemmer
+from nltk.stem import WordNetLemmatizer
+lemmatizer = WordNetLemmatizer()
+ps = PorterStemmer()
+
+import contractions
 import pandas as pd
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -9,25 +17,66 @@ import numpy as np
 vectorizer = TfidfVectorizer()
 
 
+# def preprocess_text(text):
+#     tokens = word_tokenize(text)
+#     stop_words = set(stopwords.words('english'))
+#     tokens = [token for token in tokens if token.lower() not in stop_words]
+#
+#     lemmatizer = WordNetLemmatizer()
+#     tokens = [lemmatizer.lemmatize(token) for token in tokens]
+#
+#     processed_text = ' '.join(tokens)
+#
+#     return processed_text
+#########Data Preprocessing
+
+def remove_punctuation(text):
+    # Remove punctuation characters from the text
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    return text
+
+
+def handle_numbers(text):
+    # Replace numbers with a special token
+    text = re.sub(r'\d+', '<NUM>', text)
+    return text
+
+
+def handle_contractions(text):
+    # Expand contractions in the text
+    text = contractions.fix(text)
+    return text
+
+
+def lowercase(text):
+    # Convert the text to lowercase
+    text = text.lower()
+    return text
+
+
 def preprocess_text(text):
-    tokens = word_tokenize(text)
+    text_str = str(text)
+
+    text_str = remove_punctuation(text_str)
+    text_str = handle_numbers(text_str)
+    text_str = handle_contractions(text_str)
+    text_str = lowercase(text_str)
+
+    #tokens = text_str.split()
+    tokens = word_tokenize(text_str)
     stop_words = set(stopwords.words('english'))
     tokens = [token for token in tokens if token.lower() not in stop_words]
-
-    lemmatizer = WordNetLemmatizer()
+    tokens = [ps.stem(token) for token in tokens]
     tokens = [lemmatizer.lemmatize(token) for token in tokens]
-
     processed_text = ' '.join(tokens)
-
     return processed_text
-
 
 def represent_data(data):
     X = vectorizer.fit_transform(data)
     return X
 
 
-# الفهرسة Indexing
+#  Indexing
 def build_index(data):
     inverse_index = {}
     for i, doc in enumerate(data):
@@ -38,6 +87,31 @@ def build_index(data):
             else:
                 inverse_index[term].append(i)
     return inverse_index
+
+# def build_index_v_dog(data):
+#     inverse_index = {}
+#     for i, doc in enumerate(data):
+#         terms = doc.split()
+#         for term in terms:
+#             if term not in inverse_index:
+#                 inverse_index[term] = [i]
+#             else:
+#                 # Only add unique document indices
+#                 if i not in inverse_index[term]:
+#                     inverse_index[term].append(i)
+
+    # Sort document indices and add term frequency information
+    # for term, doc_indices in inverse_index.items():
+    #     doc_indices.sort()
+    #     term_freq = {}
+    #     for i in doc_indices:
+    #         if i not in term_freq:
+    #             term_freq[i] = 1
+    #         else:
+    #             term_freq[i] += 1
+    #     inverse_index[term] = (doc_indices, term_freq)
+
+    # return inverse_index
 
 
 # # Read data
@@ -81,6 +155,21 @@ def get_candidate_docs(query, inverse_index, data):
         if term in inverse_index:
             relevant_docs.update(inverse_index[term])
     return relevant_docs
+
+# def get_candidate_docs(query, inverse_index, data):
+#     query_terms = query.split()
+#     relevant_docs = {}
+#     for term in query_terms:
+#         if term in inverse_index:
+#             doc_indices, term_freq = inverse_index[term]
+#             for i in doc_indices:
+#                 if i not in relevant_docs:
+#                     relevant_docs[i] = term_freq[i]
+#                 else:
+#                     relevant_docs[i] += term_freq[i]
+#     # Sort documents by score and return top k
+#     sorted_docs = sorted(relevant_docs.items(), key=lambda x: x[1], reverse=True)
+#     return [doc[0] for doc in sorted_docs]
 
 
 def process_queries(queries, document_vectors, inverse_index, df):
