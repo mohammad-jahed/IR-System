@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from flask_cors import CORS
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -22,6 +22,7 @@ import test
 import tesapi
 
 app = Flask(__name__)
+CORS(app, origins=['http://localhost:4200'])
 # Press the green button in the gutter to run the script.
 # if __name__ == '__main__':
 #     df = IR1.read_df(path='dataset/docs.csv')
@@ -118,9 +119,9 @@ def hello_world():
 
 if __name__ == '__main__':
     # app.run(debug=True)
-    df = pd.read_csv("dataset/docs.csv").head(100)
+    df = pd.read_csv("dataset/docs.csv")
 
-    df = df.head(100000)
+    df = df.head(100)
 
     df['processed_text'] = df['text'].apply(tesapi.preprocess_text)
     #
@@ -164,7 +165,6 @@ if __name__ == '__main__':
     eval = tesapi.evaluation(queries, result_matches, qrels, evaluation_results)
     print(eval)
 
-    app = Flask(__name__)
 
     @app.route('/process_queries', methods=['POST'])
     def process_queries():
@@ -185,5 +185,3 @@ if __name__ == '__main__':
 
 
 
-
-    app.run(debug=True)

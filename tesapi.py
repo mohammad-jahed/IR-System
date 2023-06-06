@@ -431,7 +431,7 @@ def preprocess_text(text):
     # tokens = handle_countries(tokens)
 
     # Stemming
-    # tokens = [ps.stem(token) for token in tokens]
+    tokens = [ps.stem(token) for token in tokens]
 
     # Lemmatization
     processed_text = lemmatize_with_pos(tokens)
