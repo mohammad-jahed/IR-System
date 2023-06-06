@@ -112,36 +112,52 @@ app = Flask(__name__)
 #     evaluation_results = {}
 #     test.evaluation(queries, result_matches, qrels, evaluation_results)
 #     print(evaluation_results)
+@app.route('/')
+def hello_world():
+    return "Hello, World!"
 
 if __name__ == '__main__':
     # app.run(debug=True)
     df = pd.read_csv("dataset/docs.csv").head(100)
 
-    # df = df.head(100000)
+    df = df.head(100000)
 
     df['processed_text'] = df['text'].apply(tesapi.preprocess_text)
+    #
+    with open('processed_text.pickle', 'wb') as file:
+        pickle.dump(df['processed_text'], file)
 
-    document_vectors = tesapi.represent_text(df['processed_text'])
+    with open('processed_text.pickle', 'rb') as f:
+        processed_text = pickle.load(f)
+
+    # document_vectors = tesapi.represent_text(df['processed_text'])
+    document_vectors = tesapi.represent_text(processed_text)
 
     inverse_index = tesapi.build_index(df['processed_text'])
 
-    queries = pd.read_csv('dataset/queries.csv')  # Read queries
+    with open('inverse_index.pickle', 'wb') as file:
+        pickle.dump(inverse_index, file)
+
+    with open('inverse_index.pickle', 'rb') as f:
+        inverse_indext = pickle.load(f)
+
+    queries = pd.read_csv('dataset/queries.csv').head(5)  # Read queries
 
     qrels = pd.read_csv('dataset/qrels.csv')
 
 
-    def process_queries(queries, document_vectors, inverse_index, df):
+    def process_queries(queries, document_vectors1, inverse_index, df1):
         match_result = {}
         for (index, query_id, text) in queries.values:
             top_k = len(qrels.loc[qrels['query_id'] == query_id, 'doc_id'])
             processed_query = tesapi.preprocess_text(text)
             candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_index)
-            query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, df, top_k)
+            query_results = tesapi.match_query(processed_query, document_vectors1, candidate_docs, df1, top_k)
             match_result[query_id] = [doc['doc_id'] for doc in query_results]
         return match_result
 
 
-    result_matches = process_queries(queries, document_vectors, inverse_index, df)
+    result_matches = process_queries(queries, document_vectors, inverse_indext, df)
     print(result_matches)
 
     evaluation_results = {}
@@ -152,16 +168,22 @@ if __name__ == '__main__':
 
     @app.route('/process_queries', methods=['POST'])
     def process_queries():
-        req = request.get_json()
-        query = req['text']
+        query = request.form.get('text')
+        # query = req['text']
         id = queries.loc[queries['text'] == query, 'query_id']
         top_k = len(qrels.loc[qrels['query_id'] == id.get(0), 'doc_id'])
         processed_query = tesapi.preprocess_text(query)
-        candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_index)
-        query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, data, top_k)
+        candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_indext)
+        query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, df, top_k)
         arr = {}
         for i in query_results:
-            arr[i['doc_id']] = i['text']  
+            key = str(i['doc_id'])  # Convert the key to str
+            arr[key] = i['text']
         return jsonify(arr)
+
+    app.run(debug=True)
+
+
+
 
     app.run(debug=True)
