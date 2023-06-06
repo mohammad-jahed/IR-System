@@ -148,16 +148,20 @@ if __name__ == '__main__':
     eval = tesapi.evaluation(queries, result_matches, qrels, evaluation_results)
     print(eval)
 
+    app = Flask(__name__)
 
     @app.route('/process_queries', methods=['POST'])
     def process_queries():
-        query_data = request.get_json()
-        query = query_data['text']
+        req = request.get_json()
+        query = req['text']
         id = queries.loc[queries['text'] == query, 'query_id']
-        top_k = len(qrels.loc[qrels['query_id'] == id, 'doc_id'])
-        match_result = {}
+        top_k = len(qrels.loc[qrels['query_id'] == id.get(0), 'doc_id'])
         processed_query = tesapi.preprocess_text(query)
         candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_index)
-        query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, df, top_k)
-        match_result[id] = [doc['doc_id'] for doc in query_results]
-        return jsonify(match_result)
+        query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, data, top_k)
+        arr = {}
+        for i in query_results:
+            arr[i['doc_id']] = i['text']  
+        return jsonify(arr)
+
+    app.run(debug=True)

@@ -16,7 +16,7 @@ import pandas as pd
 import nltk as nk
 import numpy as np
 import re
-import country_converter as coco
+# import country_converter as coco
 import pickle
 
 app = Flask(__name__)
@@ -25,7 +25,7 @@ ps = PorterStemmer()
 lemmatizer = WordNetLemmatizer()
 vectorizer = TfidfVectorizer()
 vec = CountVectorizer()
-cc = coco.CountryConverter()
+# cc = coco.CountryConverter()
 
 
 def handle_numbers(text):
