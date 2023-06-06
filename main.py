@@ -115,7 +115,7 @@ app = Flask(__name__)
 
 if __name__ == '__main__':
     # app.run(debug=True)
-    df = pd.read_csv("dataset/docs.csv")
+    df = pd.read_csv("dataset/docs.csv").head(100)
 
     # df = df.head(100000)
 
