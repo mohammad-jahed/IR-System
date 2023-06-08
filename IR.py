@@ -418,7 +418,7 @@ def preprocess_text(text):
     # Normalization
     text_str = remove_punctuation(text_str)
     text_str = handle_dates(text_str)
-    # text_str = handle_numbers(text_str)
+    text_str = handle_numbers(text_str)
     text_str = handle_contractions(text_str)
     text_str = lowercase(text_str)
 
@@ -431,7 +431,7 @@ def preprocess_text(text):
     # tokens = handle_countries(tokens)
 
     # Stemming
-    # tokens = [ps.stem(token) for token in tokens]
+    tokens = [ps.stem(token) for token in tokens]
 
     # Lemmatization
     processed_text = lemmatize_with_pos(tokens)
@@ -487,6 +487,8 @@ def match_query(query_vector, document_vectors, candidate_docs, data, top_k):
 #     return relevant_docs
 
 def get_candidate_docs(query_text, inverse_index):
+    if not query_text.strip():
+        return set()
     # Split the query text into terms
     query_terms = query_text.split()
 

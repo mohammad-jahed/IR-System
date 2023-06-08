@@ -19,7 +19,7 @@ def print_hi(name):
 import IR1
 import bundle
 import test
-import tesapi
+import IR
 
 app = Flask(__name__)
 # Press the green button in the gutter to run the script.
@@ -117,63 +117,101 @@ def hello_world():
     return "Hello, World!"
 
 if __name__ == '__main__':
-    # app.run(debug=True)
-    df = pd.read_csv("dataset/docs.csv")
 
-    df = df.head(100000)
+    df1 = pd.read_csv("dataset/docs.csv")
+    df2 = pd.read_csv("dataset2/docs.csv")
 
-    df['processed_text'] = df['text'].apply(tesapi.preprocess_text)
+    df1['processed_text'] = df1['text'].apply(IR.preprocess_text)
+    df2['processed_text'] = df2['text'].apply(IR.preprocess_text)
     #
-    with open('processed_text.pickle', 'wb') as file:
-        pickle.dump(df['processed_text'], file)
+    with open('processed_text1.pickle', 'wb') as file:
+        pickle.dump(df1['processed_text'], file)
 
-    with open('processed_text.pickle', 'rb') as f:
-        processed_text = pickle.load(f)
+    with open('processed_text1.pickle', 'rb') as f:
+        processed_text1 = pickle.load(f)
 
-    # document_vectors = tesapi.represent_text(df['processed_text'])
-    document_vectors = tesapi.represent_text(processed_text)
+    with open('processed_text2.pickle', 'wb') as file:
+        pickle.dump(df2['processed_text'], file)
 
-    inverse_index = tesapi.build_index(df['processed_text'])
+    with open('processed_text2.pickle', 'rb') as f:
+        processed_text2 = pickle.load(f)
 
-    with open('inverse_index.pickle', 'wb') as file:
-        pickle.dump(inverse_index, file)
+    document_vectors1 = IR.represent_text(processed_text1)
+    document_vectors2 = IR.represent_text(processed_text2)
 
-    with open('inverse_index.pickle', 'rb') as f:
-        inverse_indext = pickle.load(f)
+    inverse_index1 = IR.build_index(df1['processed_text'])
+    inverse_index2 = IR.build_index(df2['processed_text'])
 
-    queries = pd.read_csv('dataset/queries.csv').head(5)  # Read queries
+    with open('inverse_index1.pickle', 'wb') as file:
+        pickle.dump(inverse_index1, file)
 
-    qrels = pd.read_csv('dataset/qrels.csv')
+    with open('inverse_index1.pickle', 'rb') as f:
+        inverse_index_stored1 = pickle.load(f)
+
+    with open('inverse_index2.pickle', 'wb') as file:
+        pickle.dump(inverse_index2, file)
+
+    with open('inverse_index2.pickle', 'rb') as f:
+        inverse_index_stored2 = pickle.load(f)
+
+    queries1 = pd.read_csv('dataset/queries.csv')  # Read queries
+    queries2 = pd.read_csv('dataset2/queries.csv') # Read queries
+
+    qrels1 = pd.read_csv('dataset/qrels.csv')
+    qrels2 = pd.read_csv('dataset2/qrels.csv')
 
 
-    def process_queries(queries, document_vectors1, inverse_index, df1):
+    def process_queries(queries, document_vectors, inverse_index, df, qrels):
         match_result = {}
         for (index, query_id, text) in queries.values:
             top_k = len(qrels.loc[qrels['query_id'] == query_id, 'doc_id'])
-            processed_query = tesapi.preprocess_text(text)
-            candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_index)
-            query_results = tesapi.match_query(processed_query, document_vectors1, candidate_docs, df1, top_k)
+            processed_query = IR.preprocess_text(text)
+            candidate_docs = IR.get_candidate_docs(processed_query, inverse_index)
+            query_results = IR.match_query(processed_query, document_vectors, candidate_docs, df, top_k)
             match_result[query_id] = [doc['doc_id'] for doc in query_results]
         return match_result
 
 
-    result_matches = process_queries(queries, document_vectors, inverse_indext, df)
-    print(result_matches)
+    result_matches1 = process_queries(queries1, document_vectors1, inverse_index_stored1, df1, qrels1)
+    print(result_matches1)
 
-    evaluation_results = {}
-    eval = tesapi.evaluation(queries, result_matches, qrels, evaluation_results)
-    print(eval)
+    result_matches2 = process_queries(queries2, document_vectors2, inverse_index_stored2, df2, qrels2)
+    print(result_matches2)
+
+    evaluation_results1 = {}
+    eval1 = IR.evaluation(queries1, result_matches1, qrels1, evaluation_results1)
+    print(eval1)
+
+    evaluation_results2 = {}
+    eval2 = IR.evaluation(queries2, result_matches2, qrels2, evaluation_results2)
+    print(eval2)
 
 
-    @app.route('/process_queries', methods=['POST'])
-    def process_queries():
+    @app.route('/process_queries1', methods=['POST'])
+    def process_queries1():
         query = request.form.get('text')
         # query = req['text']
-        id = queries.loc[queries['text'] == query, 'query_id']
-        top_k = len(qrels.loc[qrels['query_id'] == id.get(0), 'doc_id'])
-        processed_query = tesapi.preprocess_text(query)
-        candidate_docs = tesapi.get_candidate_docs(processed_query, inverse_indext)
-        query_results = tesapi.match_query(processed_query, document_vectors, candidate_docs, df, top_k)
+        id = queries1.loc[queries1['text'] == query, 'query_id']
+        top_k = len(qrels1.loc[qrels1['query_id'] == id.get(0), 'doc_id'])
+        processed_query = IR.preprocess_text(query)
+        candidate_docs = IR.get_candidate_docs(processed_query, inverse_index_stored1)
+        query_results = IR.match_query(processed_query, document_vectors1, candidate_docs, df1, top_k)
+        arr = {}
+        for i in query_results:
+            key = str(i['doc_id'])  # Convert the key to str
+            arr[key] = i['text']
+        return jsonify(arr)
+
+
+    @app.route('/process_queries2', methods=['POST'])
+    def process_queries2():
+        query = request.form.get('text')
+        # query = req['text']
+        id = queries2.loc[queries2['text'] == query, 'query_id']
+        top_k = len(qrels2.loc[qrels2['query_id'] == id.get(0), 'doc_id'])
+        processed_query = IR.preprocess_text(query)
+        candidate_docs = IR.get_candidate_docs(processed_query, inverse_index_stored2)
+        query_results = IR.match_query(processed_query, document_vectors2, candidate_docs, df2, top_k)
         arr = {}
         for i in query_results:
             key = str(i['doc_id'])  # Convert the key to str
