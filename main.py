@@ -179,12 +179,19 @@ if __name__ == '__main__':
     print(result_matches2)
 
     evaluation_results1 = {}
-    eval1 = IR.evaluation(queries1, result_matches1, qrels1, evaluation_results1)
-    print(eval1)
+    avg_f1, avg_pre1, avg_pre_at_k1, avg_mrr1 = IR.evaluation(queries1, result_matches1, qrels1, evaluation_results1)
+    print("FMeasure Average = ",avg_f1)
+    print("Mean Average Precision = ",avg_pre1) 
+    print("Precesion Average @10 = ",avg_pre_at_k1)
+    print("Mean Reciprocal Rank = ",avg_mrr1)
 
     evaluation_results2 = {}
-    eval2 = IR.evaluation(queries2, result_matches2, qrels2, evaluation_results2)
-    print(eval2)
+    avg_f2, avg_pre2, avg_pre_at_k2, avg_mrr2 = IR.evaluation(queries2, result_matches2, qrels2, evaluation_results2)
+    print("FMeasure Average = ",avg_f2)
+    print("Mean Average Precision = ",avg_pre2) 
+    print("Precesion Average @10 = ",avg_pre_at_k2)
+    print("Mean Reciprocal Rank = ",avg_mrr2)
+
 
 
     @app.route('/process_queries1', methods=['POST'])

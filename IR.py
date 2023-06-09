@@ -521,9 +521,23 @@ def f1_score(precision, recall):
     """
     return 2 * precision * recall / (precision + recall + 1e-10)
 
+def calculate_precision_at_k(relevant_docs, retrieved_docs, k):
+    retrieved_docs_at_k = retrieved_docs[:k]
+    relevant_and_retrieved = set(relevant_docs).intersection(set(retrieved_docs_at_k))
+    precision = len(relevant_and_retrieved) / k
+    return precision
+
+def calculate_mrr(relevant_docs, retrieved_docs):
+    for i, doc in enumerate(retrieved_docs):
+        if doc in relevant_docs:
+            return 1 / (i + 1)
+    return 0
 
 def evaluation(queries, result_matches, qrels, evaluation_results):
     f1_scores = []
+    precesion_at_k = []
+    average_precision = []
+    mrr_scores = []
     for (index, query_id, text) in queries.values:
         if query_id in evaluation_results:
             # If this query has already been evaluated, skip it
@@ -546,13 +560,19 @@ def evaluation(queries, result_matches, qrels, evaluation_results):
         prec = precision(tp, fp)
         rec = recall(tp, fn)
         f1 = f1_score(prec, rec)
-
+        pre_k = calculate_precision_at_k(relevant_docs, result_match, 10)
+        mrr = calculate_mrr(relevant_docs, result_match)
         # Store the f1 score in the list
         f1_scores.append(f1)
-
+        average_precision.append(prec)
+        precesion_at_k.append(pre_k)
+        mrr_scores.append(mrr)
         # Store the evaluation results for this query in the dictionary
         evaluation_results[query_id] = (prec, rec, f1)
 
-    # Compute the average F1 score and return it
+    # Compute the average and return it
     avg_f1 = sum(f1_scores) / len(f1_scores)
-    return avg_f1
+    avg_pre = sum(average_precision) / len(average_precision)
+    avg_pre_at_k = sum(precesion_at_k) / len(precesion_at_k)
+    avg_mrr = sum(mrr_scores) / len(mrr_scores)
+    return avg_f1, avg_pre, avg_pre_at_k, avg_mrr
