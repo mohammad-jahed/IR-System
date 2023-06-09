@@ -20,8 +20,11 @@ import IR1
 import bundle
 import test
 import IR
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, origins=['http://localhost:4200'])
+
 # Press the green button in the gutter to run the script.
 # if __name__ == '__main__':
 #     df = IR1.read_df(path='dataset/docs.csv')
