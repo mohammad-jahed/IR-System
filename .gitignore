@@ -1,3 +1,7 @@
 **venv/
 dataset/
 dataset2/
+inverse_index1.pickle/
+inverse_index2.pickle/
+processed_text1.pickle/
+processed_text2.pickle/
